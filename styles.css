@@ -241,6 +241,11 @@ textarea:focus {
   background-color: var(--accent-success);
 }
 
+.status-error {
+  background-color: var(--accent-danger);
+  border: 1px solid var(--text-primary);
+}
+
 /* Setup Wizard */
 #setup-wizard {
   position: fixed;

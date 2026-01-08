@@ -38,8 +38,10 @@ class Steady {
     }
 
     setupSpeech() {
-        if ('webkitSpeechRecognition' in window) {
-            this.recognition = new webkitSpeechRecognition();
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (SpeechRecognition) {
+            this.recognition = new SpeechRecognition();
             this.recognition.continuous = true;
             this.recognition.interimResults = true;
             this.recognition.lang = 'en-US';
@@ -64,7 +66,9 @@ class Steady {
 
             this.recognition.onend = () => {
                 this.isListening = false;
-                this.updateStatus('System Ready', 'ready');
+                if (!this.dom.statusText.textContent.includes('Error')) {
+                    this.updateStatus('System Ready', 'ready');
+                }
                 this.dom.micToggle.classList.remove('active');
                 this.dom.micToggle.innerHTML = `
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
@@ -77,20 +81,24 @@ class Steady {
 
                 let message = "Audio Interface Error";
                 if (event.error === 'network') {
-                    message = "Speech service unreachable. Please ensure HTTPS and a stable connection, or use manual input.";
+                    message = "Speech service unreachable. Chrome requires an active internet connection for real-time transcription. Please use manual input.";
+                    this.updateStatus('Network Error', 'error');
                 } else if (event.error === 'not-allowed') {
-                    message = "Microphone access denied. Please check browser permissions.";
+                    message = "Microphone access denied. Please verify browser permissions and reload.";
+                    this.updateStatus('Permission Denied', 'error');
                 } else if (event.error === 'no-speech') {
-                    return; // Ignore common no-speech timeout
+                    return; // Ignore silence
                 }
 
                 this.showNotification(message);
-                this.updateStatus('Interface Error', 'thinking');
 
-                // Reset state on terminal errors
+                // Transition to manual intervention model
                 if (['network', 'not-allowed', 'service-not-allowed'].includes(event.error)) {
                     this.recognition.stop();
-                    this.dom.manualInput.focus();
+                    setTimeout(() => {
+                        this.dom.manualInput.placeholder = "Type here (Microphone currently unavailable)";
+                        this.dom.manualInput.focus();
+                    }, 500);
                 }
             };
         } else {

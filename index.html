@@ -1,36 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AuraAudit | Live Interview Coach</title>
+    <title>Steady | Professional Interview Tool</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <meta name="theme-color" content="#0a0a0c">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <meta name="theme-color" content="#1E1F22">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
+
 <body>
 
     <!-- Setup Wizard -->
     <div id="setup-wizard" class="hidden">
         <div class="wizard-card">
-            <h2 class="logo" style="font-size: 2rem; margin-bottom: 0.5rem;">AuraAudit</h2>
-            <p style="color: var(--text-muted); margin-bottom: 2rem;">Quick setup to tailor your coaching responses.</p>
-            
+            <div class="logo-container" style="margin-bottom: 1.5rem;">
+                <div class="vertical-mark"></div>
+                <div class="logo-text">Steady</div>
+            </div>
+            <p style="color: var(--text-secondary); margin-bottom: 2.5rem; font-size: 0.875rem;">Configure your
+                professional context for tailored coaching.</p>
+
             <form id="setup-form">
                 <div class="input-group">
                     <label for="role">Target Role</label>
                     <input type="text" id="role" placeholder="e.g. Senior Product Manager" required>
                 </div>
                 <div class="input-group">
-                    <label for="industry">Industry</label>
+                    <label for="industry">Industry Context</label>
                     <select id="industry" required>
-                        <option value="tech">Startups / Technology</option>
                         <option value="corporate">Corporate / Finance</option>
+                        <option value="tech">Startups / Technology</option>
                         <option value="creative">Creative / Marketing</option>
                         <option value="government">Public Sector / NGO</option>
                     </select>
@@ -43,7 +49,8 @@
                         <option value="leadership">Leadership / Executive</option>
                     </select>
                 </div>
-                <button type="submit" class="btn btn-primary" style="width: 100%;">Start Coaching</button>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Initialize
+                    Tool</button>
             </form>
         </div>
     </div>
@@ -51,80 +58,93 @@
     <!-- Main Container -->
     <div class="container">
         <header>
-            <div class="logo">AuraAudit</div>
+            <div class="logo-container">
+                <div class="vertical-mark"></div>
+                <div class="logo-text">Steady</div>
+            </div>
             <div class="status-bar">
-                <span id="status-text" style="font-size: 0.875rem; color: var(--text-muted);">
+                <span id="status-text"
+                    style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">
                     <span class="status-indicator status-ready"></span>System Ready
                 </span>
             </div>
-            <button class="btn btn-ghost" id="edit-profile-btn" style="padding: 0.5rem;">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+            <button class="btn btn-secondary" id="edit-profile-btn" style="padding: 0.5rem; border: none;">
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                </svg>
             </button>
         </header>
 
         <main>
-            <!-- Coach Panel -->
-            <div class="coach-panel">
-                <div id="active-response-container">
-                    <div class="response-card active-response">
-                        <div id="coaching-output" class="script-text">
-                            Hello! I'm your coach. Start speaking or type a question to receive real-time guidance.
-                        </div>
+            <!-- Instrument Panel -->
+            <div class="instrument-panel">
+                <div class="response-area">
+                    <div id="coaching-output" class="script-text">
+                        Awaiting input. Select 'Start Monitoring' to begin real-time conversational assistance.
                     </div>
                 </div>
 
-                <!-- Live Info Area (Scannable notes) -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                    <div class="response-card" style="min-height: auto;">
-                        <label>Key Themes</label>
-                        <div id="key-themes" style="font-size: 0.875rem; color: var(--text-muted);">No active session</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <div class="panel">
+                        <label>Thematic Focus</label>
+                        <div id="key-themes" class="scannable-value">N/A</div>
                     </div>
-                    <div class="response-card" style="min-height: auto;">
-                        <label>Tone Reminder</label>
-                        <div id="tone-indicator" style="font-size: 0.875rem; color: var(--text-muted);">Waiting...</div>
+                    <div class="panel">
+                        <label>Tone Guidance</label>
+                        <div id="tone-indicator" class="scannable-value">Waiting...</div>
                     </div>
                 </div>
 
-                <!-- Input/Controls -->
-                <div class="sidebar-item">
-                     <textarea id="manual-input" placeholder="Type interview question here if microphone is unavailable..." style="height: 100px; resize: none;"></textarea>
+                <div class="input-group">
+                    <label>Manual Query Input</label>
+                    <textarea id="manual-input"
+                        placeholder="Paste interview question here if microphone is unavailable..."
+                        style="height: 80px; resize: none;"></textarea>
                 </div>
 
-                <div class="controls-bar">
+                <div class="controls-bar" style="display: flex; gap: 1rem;">
                     <button id="mic-toggle" class="btn btn-primary mic-btn" style="flex: 1;">
-                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
-                        Start Listening
+                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z">
+                            </path>
+                        </svg>
+                        Start Monitoring
                     </button>
-                    <button id="clear-session" class="btn btn-ghost">New Session</button>
+                    <button id="clear-session" class="btn btn-secondary">Reset State</button>
                 </div>
             </div>
 
-            <!-- History/Sidebar -->
+            <!-- Contextual Sidebar -->
             <div class="sidebar">
-                <div class="sidebar-item">
-                    <h3 style="margin-bottom: 1rem;">Session Highlights</h3>
+                <div class="panel">
+                    <h3
+                        style="font-size: 0.875rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1.5rem;">
+                        Event History</h3>
                     <div id="session-history" class="history-list">
-                        <!-- History items injected here -->
-                        <div class="history-item" style="text-align: center; color: var(--text-muted);">
-                            No recent responses
+                        <div class="history-item"
+                            style="text-align: center; color: var(--text-secondary); font-size: 0.875rem;">
+                            No logged events
                         </div>
                     </div>
                 </div>
 
-                <!-- Grounding Box (for stress moments) -->
-                <div class="response-card" style="border-left: 4px solid var(--accent-cyan);">
-                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
-                        <svg width="20" height="20" fill="var(--accent-cyan)" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z"></path></svg>
-                        <strong style="color: var(--accent-cyan);">Stress Support</strong>
+                <div class="panel" style="border-left: 2px solid var(--accent-primary);">
+                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+                        <div style="width: 8px; height: 8px; background-color: var(--accent-primary);"></div>
+                        <strong
+                            style="font-size: 0.75rem; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.05em;">Clarity
+                            Support</strong>
                     </div>
-                    <p id="grounding-text" style="font-size: 0.875rem;">Feeling stuck? Take a breath. I'll provide a sentence starter if you signal a pause.</p>
+                    <p id="grounding-text" style="font-size: 0.875rem; color: var(--text-secondary);">Maintain a steady
+                        pace. I will provide structured sentence starters as needed.</p>
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- Notification system -->
-    <div id="notifications" style="position: fixed; bottom: 2rem; right: 2rem; z-index: 2000;"></div>
+    <div id="notifications"></div>
 
     <script src="script.js"></script>
     <script>
@@ -133,4 +153,5 @@
         }
     </script>
 </body>
+
 </html>

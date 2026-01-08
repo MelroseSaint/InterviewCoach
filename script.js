@@ -1,14 +1,13 @@
 /**
- * AuraAudit | Real-time Interview Coach Logic
+ * Steady | Professional Interview Instrument
  */
 
-class AuraAudit {
+class Steady {
     constructor() {
-        this.config = JSON.parse(localStorage.getItem('aura_config')) || null;
-        this.history = JSON.parse(localStorage.getItem('aura_history')) || [];
+        this.config = JSON.parse(localStorage.getItem('steady_config')) || null;
+        this.history = JSON.parse(localStorage.getItem('steady_history')) || [];
         this.isListening = false;
         this.recognition = null;
-        this.lastTranscription = "";
 
         this.init();
     }
@@ -47,21 +46,18 @@ class AuraAudit {
 
             this.recognition.onstart = () => {
                 this.isListening = true;
-                this.updateStatus('Listening...', 'listening');
+                this.updateStatus('Monitoring...', 'listening');
                 this.dom.micToggle.classList.add('active');
                 this.dom.micToggle.innerHTML = `
-                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    Stop Listening
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    End Monitoring
                 `;
             };
 
             this.recognition.onresult = (event) => {
-                let interimTranscript = '';
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
                         this.processInput(event.results[i][0].transcript);
-                    } else {
-                        interimTranscript += event.results[i][0].transcript;
                     }
                 }
             };
@@ -71,18 +67,18 @@ class AuraAudit {
                 this.updateStatus('System Ready', 'ready');
                 this.dom.micToggle.classList.remove('active');
                 this.dom.micToggle.innerHTML = `
-                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
-                    Start Listening
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                    Start Monitoring
                 `;
             };
 
             this.recognition.onerror = (event) => {
-                console.error("Speech Recognition Error", event.error);
-                this.showNotification("Microphone error: " + event.error, "danger");
+                console.error("Audio Interface Error", event.error);
+                this.showNotification("Audio Interface Error: " + event.error);
             };
         } else {
             this.dom.micToggle.disabled = true;
-            this.dom.micToggle.textContent = "Speech API Not Supported";
+            this.dom.micToggle.textContent = "Interface Not Supported";
         }
     }
 
@@ -118,9 +114,9 @@ class AuraAudit {
         });
 
         this.dom.clearSessionBtn.addEventListener('click', () => {
-            this.dom.output.textContent = "Session cleared. I'm ready for the next question.";
-            this.dom.keyThemes.textContent = "No active session";
-            this.showNotification("Session cleared", "success");
+            this.dom.output.textContent = "State reset. All active buffers cleared.";
+            this.dom.keyThemes.textContent = "N/A";
+            this.showNotification("Operational state reset");
         });
 
         this.dom.manualInput.addEventListener('keypress', (e) => {
@@ -134,86 +130,78 @@ class AuraAudit {
 
     saveConfig(config) {
         this.config = config;
-        localStorage.setItem('aura_config', JSON.stringify(config));
+        localStorage.setItem('steady_config', JSON.stringify(config));
         this.dom.wizard.classList.add('hidden');
         this.setThemeInfo();
-        this.showNotification("Profile updated successfully", "success");
+        this.showNotification("Profile initialized");
     }
 
     setThemeInfo() {
         if (!this.config) return;
         const tones = {
-            tech: "Dynamic, Problem-Solving, Growth-Minded",
-            corporate: "Professional, Strategic, Value-Oriented",
-            creative: "Innovative, Collaborative, Expressive",
-            government: "Structured, Policy-Aware, Community-Focused"
+            tech: "Dynamic, Problem-Solving",
+            corporate: "Strategic, Value-Oriented",
+            creative: "Innovative, Expressive",
+            government: "Structured, Policy-Aware"
         };
-        this.dom.toneIndicator.textContent = tones[this.config.industry] || "Balanced";
+        this.dom.toneIndicator.textContent = tones[this.config.industry] || "Professional";
     }
 
     processInput(text) {
         if (!text.trim()) return;
-        this.updateStatus('Thinking...', 'thinking');
+        this.updateStatus('Processing...', 'thinking');
 
-        // Strategy: Wait a brief moment to simulate processing
         setTimeout(() => {
             const response = this.generateResponse(text);
             this.displayResponse(response);
             this.addToHistory(text, response);
             this.updateStatus('System Ready', 'ready');
-        }, 600);
+        }, 400);
     }
 
     generateResponse(input) {
         const text = input.toLowerCase();
-        let coach = {
+        let assistant = {
             script: "",
             themes: "",
             grounding: ""
         };
 
         const role = this.config?.role || "professional";
-        const industry = this.config?.industry || "tech";
+        const industry = this.config?.industry || "corporate";
 
-        // Behavioral Detection
         if (text.includes("time you") || text.includes("example of") || text.includes("describe a")) {
-            coach.script = `Use the STAR method. Start with: "A specific instance that comes to mind is when I was at [Company]..."`;
-            coach.themes = "Behavioral, Soft Skills, Leadership";
-            coach.grounding = "Breathe. Describe the Situation clearly before moving to your Action.";
+            assistant.script = `Utilize the STAR framework. Phrase: "A specific scenario that demonstrates this is when I was at [Organization]..."`;
+            assistant.themes = "Behavioral Analysis, Leadership";
+            assistant.grounding = "Describe the Situation concisely. Focus on your specific Action.";
         }
-        // Strength/Weakness
         else if (text.includes("strength") || text.includes("weakness")) {
-            coach.script = `For strength: "My core strength is my ability to bridge [X] and [Y]..." For weakness: "I've been working on [Skill] recently by [Action]..."`;
-            coach.themes = "Self-Awareness, Growth";
-            coach.grounding = "Keep it positive. Frame weaknesses as 'current areas of focus'.";
+            assistant.script = `"My core capability lies in [X], which I've utilized to achieve [Y]..." For areas of growth: "I am currently refining my skillset in [Skill] by [Action]..."`;
+            assistant.themes = "Professional Self-Awareness";
+            assistant.grounding = "Ensure weaknesses are framed as active development areas.";
         }
-        // Conflict
         else if (text.includes("conflict") || text.includes("disagree") || text.includes("difficult")) {
-            coach.script = `"I handle disagreements by first ensuring I fully understand the other perspective through active listening..."`;
-            coach.themes = "Conflict Resolution, Maturity";
-            coach.grounding = "Stay objective. Don't blame others. Focus on the professional resolution.";
+            assistant.script = `"I approach differing perspectives by first ensuring full alignment on objectives through active comprehension..."`;
+            assistant.themes = "Professional Maturity";
+            assistant.grounding = "Remain objective. Focus on solution-oriented outcomes.";
         }
-        // Why us?
         else if (text.includes("why do you") || text.includes("why this") || text.includes("interest you")) {
-            coach.script = `"I've followed [Company] because of your work in [Industry Field]. My experience in ${role} aligns perfectly with your mission to..."`;
-            coach.themes = "Alignment, Research, Value Prop";
-            coach.grounding = "Show enthusiasm. Connect your past to their future.";
+            assistant.script = `"I am interested in this position because [Organization]'s focus on [Industry] aligns with my experience as a ${role}..."`;
+            assistant.themes = "Organizational Alignment";
+            assistant.grounding = "Connect historical experience to future value contribution.";
         }
-        // General Contextual Response
         else {
-            coach.script = `"That's a great question. Looking at my background as a ${role}, I would approach that by focusing on..."`;
-            coach.themes = "Expertise, Quick Thinking";
-            coach.grounding = "Use: 'That's an interesting perspective' if you need 2 seconds to think.";
+            assistant.script = `"That is an important consideration. In my capacity as a ${role}, I would address that by..."`;
+            assistant.themes = "Domain Expertise";
+            assistant.grounding = "Use: 'Let's examine that from a different angle' if you require a pause.";
         }
 
-        // Adjust for Industry Tone
+        // Professional tone refinement for Corporate
         if (industry === 'corporate') {
-            coach.script = coach.script.replace(/BRIDGE/g, 'OPTIMIZE').replace(/WORK/g, 'LEVERAGE');
-        } else if (industry === 'startup') {
-            coach.script = coach.script.replace(/STRUCTURED/g, 'AGILE').replace(/PROCESS/g, 'VELOCITY');
+            assistant.script = assistant.script.replace(/EXCITED/g, 'STRATEGICALLY ALIGNED').replace(/LOVE/g, 'VALUED');
         }
 
-        return coach;
+        return assistant;
     }
 
     displayResponse(response) {
@@ -225,29 +213,29 @@ class AuraAudit {
     addToHistory(input, response) {
         const item = {
             id: Date.now(),
-            input: input.substring(0, 50) + (input.length > 50 ? "..." : ""),
+            input: input.substring(0, 40) + (input.length > 40 ? "..." : ""),
             script: response.script,
-            timestamp: new Date().toLocaleTimeString()
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         this.history.unshift(item);
-        if (this.history.length > 20) this.history.pop();
-        localStorage.setItem('aura_history', JSON.stringify(this.history));
+        if (this.history.length > 15) this.history.pop();
+        localStorage.setItem('steady_history', JSON.stringify(this.history));
         this.renderHistory();
     }
 
     renderHistory() {
         if (this.history.length === 0) {
-            this.dom.historyList.innerHTML = `<div class="history-item" style="text-align: center; color: var(--text-muted);">No recent responses</div>`;
+            this.dom.historyList.innerHTML = `<div class="history-item" style="text-align: center; color: var(--text-secondary); font-size: 0.875rem;">No logged events</div>`;
             return;
         }
 
         this.dom.historyList.innerHTML = this.history.map(item => `
-            <div class="history-item" onclick="app.loadHistoryItem(${item.id})">
+            <div class="history-item" onclick="window.steady.loadHistoryItem(${item.id})">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-                    <strong style="font-size: 0.75rem; color: var(--primary);">Question</strong>
-                    <span style="font-size: 0.7rem; color: var(--text-muted);">${item.timestamp}</span>
+                    <strong style="font-size: 0.65rem; color: var(--accent-primary); text-transform: uppercase;">Event</strong>
+                    <span style="font-size: 0.65rem; color: var(--text-secondary);">${item.timestamp}</span>
                 </div>
-                <div style="font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                <div style="font-size: 0.8125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary);">
                     ${item.input}
                 </div>
             </div>
@@ -258,7 +246,7 @@ class AuraAudit {
         const item = this.history.find(h => h.id === id);
         if (item) {
             this.dom.output.textContent = item.script;
-            this.showNotification("Past response loaded", "success");
+            this.showNotification("Event data recalled");
         }
     }
 
@@ -267,37 +255,19 @@ class AuraAudit {
         this.dom.statusText.innerHTML = `<span class="status-indicator ${typeClass}"></span>${text}`;
     }
 
-    showNotification(message, type = "success") {
-        const id = 'notif-' + Date.now();
-        const colors = {
-            success: 'var(--success)',
-            danger: 'var(--danger)',
-            info: 'var(--primary)'
-        };
-
+    showNotification(message) {
         const notif = document.createElement('div');
-        notif.id = id;
-        notif.className = 'response-card';
-        notif.style.cssText = `
-            margin-bottom: 1rem;
-            animation: fadeIn 0.3s ease-out;
-            background: ${colors[type]};
-            color: white;
-            padding: 0.75rem 1rem;
-            min-height: auto;
-            border: none;
-        `;
+        notif.className = 'notification';
         notif.textContent = message;
 
         document.getElementById('notifications').appendChild(notif);
         setTimeout(() => {
             notif.style.opacity = '0';
-            notif.style.transform = 'translateX(20px)';
-            notif.style.transition = 'all 0.3s ease';
+            notif.style.transition = 'opacity 0.3s ease';
             setTimeout(() => notif.remove(), 300);
-        }, 3000);
+        }, 2500);
     }
 }
 
-// Global instance for onclick handlers
-window.app = new AuraAudit();
+// Initialize
+window.steady = new Steady();

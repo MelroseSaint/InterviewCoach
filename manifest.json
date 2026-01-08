@@ -1,11 +1,11 @@
 {
-    "name": "AuraAudit Interview Coach",
-    "short_name": "AuraAudit",
-    "description": "Real-time interview coaching assistant.",
+    "name": "Steady | Interview Tool",
+    "short_name": "Steady",
+    "description": "Professional interview conversational assistant.",
     "start_url": "./index.html",
     "display": "standalone",
-    "background_color": "#0a0a0c",
-    "theme_color": "#6366f1",
+    "background_color": "#1E1F22",
+    "theme_color": "#1E1F22",
     "icons": [
         {
             "src": "icon-192.png",

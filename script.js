@@ -38,73 +38,92 @@ class Steady {
     }
 
     setupSpeech() {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        this.isListening = false;
+        this.model = null;
+        this.recognizer = null;
+        this.stream = null;
+        this.audioContext = null;
+        this.processor = null;
+        this.loadVosk();
+    }
 
-        if (SpeechRecognition) {
-            this.recognition = new SpeechRecognition();
-            this.recognition.continuous = true;
-            this.recognition.interimResults = true;
-            this.recognition.lang = 'en-US';
+    async loadVosk() {
+        try {
+            // Check if running on HTTPS (required for microphone access)
+            if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+                throw new Error('HTTPS required for microphone access. Please serve this app over HTTPS or run locally.');
+            }
 
-            this.recognition.onstart = () => {
-                this.isListening = true;
-                this.updateStatus('Monitoring...', 'listening');
-                this.dom.micToggle.classList.add('active');
-                this.dom.micToggle.innerHTML = `
-                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    End Monitoring
-                `;
-            };
-
-            this.recognition.onresult = (event) => {
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        this.processInput(event.results[i][0].transcript);
-                    }
+            const modelUrl = 'https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz';
+            if (typeof Vosk.createModel === 'function') {
+                this.model = await Vosk.createModel(modelUrl);
+            } else {
+                this.model = new Vosk.Model(modelUrl);
+            }
+            this.recognizer = new Vosk.Recognizer({model: this.model, sampleRate: 16000});
+            this.recognizer.on('result', (result) => {
+                if (result.text) {
+                    this.processInput(result.text);
                 }
-            };
-
-            this.recognition.onend = () => {
-                this.isListening = false;
-                if (!this.dom.statusText.textContent.includes('Error')) {
-                    this.updateStatus('System Ready', 'ready');
-                }
-                this.dom.micToggle.classList.remove('active');
-                this.dom.micToggle.innerHTML = `
-                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
-                    Start Monitoring
-                `;
-            };
-
-            this.recognition.onerror = (event) => {
-                console.error("Audio Interface Error", event.error);
-
-                let message = "Audio Interface Error";
-                if (event.error === 'network') {
-                    message = "Speech service unreachable. Chrome requires an active internet connection for real-time transcription. Please use manual input.";
-                    this.updateStatus('Network Error', 'error');
-                } else if (event.error === 'not-allowed') {
-                    message = "Microphone access denied. Please verify browser permissions and reload.";
-                    this.updateStatus('Permission Denied', 'error');
-                } else if (event.error === 'no-speech') {
-                    return; // Ignore silence
-                }
-
-                this.showNotification(message);
-
-                // Transition to manual intervention model
-                if (['network', 'not-allowed', 'service-not-allowed'].includes(event.error)) {
-                    this.recognition.stop();
-                    setTimeout(() => {
-                        this.dom.manualInput.placeholder = "Type here (Microphone currently unavailable)";
-                        this.dom.manualInput.focus();
-                    }, 500);
-                }
-            };
-        } else {
-            this.dom.micToggle.disabled = true;
-            this.dom.micToggle.textContent = "Interface Not Supported";
+            });
+            // Setup audio with retry mechanism
+            await this.setupAudioWithRetry();
+        } catch (e) {
+            console.error('Vosk setup failed', e);
+            this.handleMicError(e);
         }
+    }
+
+    async setupAudioWithRetry(maxRetries = 3) {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                this.stream = await navigator.mediaDevices.getUserMedia({audio: true});
+                this.audioContext = new AudioContext();
+                await this.audioContext.audioWorklet.addModule('audio-worklet.js');
+                const source = this.audioContext.createMediaStreamSource(this.stream);
+                const workletNode = new AudioWorkletNode(this.audioContext, 'audio-processor');
+                workletNode.port.onmessage = (event) => {
+                    if (this.isListening) {
+                        this.recognizer.acceptWaveform(event.data);
+                    }
+                };
+                source.connect(workletNode);
+                workletNode.connect(this.audioContext.destination);
+                return; // Success, exit retry loop
+            } catch (e) {
+                console.warn(`Microphone access attempt ${attempt} failed:`, e);
+                if (attempt === maxRetries) {
+                    throw e; // Re-throw on final attempt
+                }
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+    }
+
+    handleMicError(error) {
+        let message = "Speech Recognition Unavailable. Use manual input.";
+        let detailedMessage = "";
+
+        if (error.name === 'NotAllowedError') {
+            message = "Microphone permission denied.";
+            detailedMessage = "Please allow microphone access in your browser settings. In Brave, check Shields settings and site permissions.";
+        } else if (error.name === 'NotFoundError') {
+            message = "No microphone found.";
+            detailedMessage = "Ensure your microphone is connected and enabled.";
+        } else if (error.name === 'NotReadableError') {
+            message = "Microphone is busy.";
+            detailedMessage = "Close other applications using the microphone and try again.";
+        } else if (error.message.includes('HTTPS')) {
+            message = "HTTPS Required";
+            detailedMessage = "Microphone access requires HTTPS. Please serve this app over HTTPS or run locally.";
+        } else {
+            detailedMessage = error.message;
+        }
+
+        this.dom.micToggle.disabled = true;
+        this.dom.micToggle.textContent = message;
+        this.showNotification(`${message} ${detailedMessage}`);
     }
 
     checkFirstRun() {
@@ -128,9 +147,21 @@ class Steady {
 
         this.dom.micToggle.addEventListener('click', () => {
             if (this.isListening) {
-                this.recognition.stop();
+                this.isListening = false;
+                this.updateStatus('System Ready', 'ready');
+                this.dom.micToggle.classList.remove('active');
+                this.dom.micToggle.innerHTML = `
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                    Start Monitoring
+                `;
             } else {
-                this.recognition.start();
+                this.isListening = true;
+                this.updateStatus('Monitoring...', 'listening');
+                this.dom.micToggle.classList.add('active');
+                this.dom.micToggle.innerHTML = `
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    End Monitoring
+                `;
             }
         });
 
@@ -223,7 +254,7 @@ class Steady {
 
         // Professional tone refinement for Corporate
         if (industry === 'corporate') {
-            assistant.script = assistant.script.replace(/EXCITED/g, 'STRATEGICALLY ALIGNED').replace(/LOVE/g, 'VALUED');
+            assistant.script = assistant.script.replaceAll('EXCITED', 'STRATEGICALLY ALIGNED').replaceAll('LOVE', 'VALUED');
         }
 
         return assistant;
@@ -295,4 +326,4 @@ class Steady {
 }
 
 // Initialize
-window.steady = new Steady();
+globalThis.steady = new Steady();

@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/vosk-browser@latest/dist/vosk.js"></script>
     <meta name="theme-color" content="#1E1F22">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -87,17 +88,17 @@
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
                     <div class="panel">
-                        <label>Thematic Focus</label>
+                        <div class="label">Thematic Focus</div>
                         <div id="key-themes" class="scannable-value">N/A</div>
                     </div>
                     <div class="panel">
-                        <label>Tone Guidance</label>
+                        <div class="label">Tone Guidance</div>
                         <div id="tone-indicator" class="scannable-value">Waiting...</div>
                     </div>
                 </div>
 
                 <div class="input-group">
-                    <label>Manual Query Input</label>
+                    <label for="manual-input">Manual Query Input</label>
                     <textarea id="manual-input"
                         placeholder="Paste interview question here if microphone is unavailable..."
                         style="height: 80px; resize: none;"></textarea>

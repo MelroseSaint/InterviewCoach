@@ -1,10 +1,11 @@
-const CACHE_NAME = 'aura-audit-v1';
+const CACHE_NAME = 'steady-interview-v2';
 const ASSETS = [
     './',
     './index.html',
     './styles.css',
-    './script.js',
-    './manifest.json'
+    './script.js',    './audio-worklet.js',    './manifest.json',
+    './icon-192.png',
+    './icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {

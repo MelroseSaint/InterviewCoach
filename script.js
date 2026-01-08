@@ -74,7 +74,24 @@ class Steady {
 
             this.recognition.onerror = (event) => {
                 console.error("Audio Interface Error", event.error);
-                this.showNotification("Audio Interface Error: " + event.error);
+
+                let message = "Audio Interface Error";
+                if (event.error === 'network') {
+                    message = "Speech service unreachable. Please ensure HTTPS and a stable connection, or use manual input.";
+                } else if (event.error === 'not-allowed') {
+                    message = "Microphone access denied. Please check browser permissions.";
+                } else if (event.error === 'no-speech') {
+                    return; // Ignore common no-speech timeout
+                }
+
+                this.showNotification(message);
+                this.updateStatus('Interface Error', 'thinking');
+
+                // Reset state on terminal errors
+                if (['network', 'not-allowed', 'service-not-allowed'].includes(event.error)) {
+                    this.recognition.stop();
+                    this.dom.manualInput.focus();
+                }
             };
         } else {
             this.dom.micToggle.disabled = true;

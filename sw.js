@@ -1,9 +1,10 @@
-const CACHE_NAME = 'steady-interview-v2';
+const CACHE_NAME = 'steady-interview-v3';
 const ASSETS = [
     './',
     './index.html',
     './styles.css',
-    './script.js',    './audio-worklet.js',    './manifest.json',
+    './script.js',
+    './manifest.json',
     './icon-192.png',
     './icon-512.png'
 ];

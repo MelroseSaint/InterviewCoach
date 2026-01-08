@@ -4,10 +4,22 @@
 
 class Steady {
     constructor() {
-        this.config = JSON.parse(localStorage.getItem('steady_config')) || null;
-        this.history = JSON.parse(localStorage.getItem('steady_history')) || [];
-        this.isListening = false;
-        this.recognition = null;
+        try {
+            this.config = JSON.parse(localStorage.getItem('steady_config')) || null;
+            this.history = JSON.parse(localStorage.getItem('steady_history')) || [];
+            this.chatHistory = JSON.parse(localStorage.getItem('steady_chat_history')) || [];
+            this.isListening = false;
+            this.recognition = null;
+            this.mode = localStorage.getItem('steady_mode') || 'interview';
+            this.voiceEnabled = JSON.parse(localStorage.getItem('steady_voice')) || false;
+        } catch (e) {
+            console.error('Error loading from localStorage:', e);
+            this.config = null;
+            this.history = [];
+            this.chatHistory = [];
+            this.mode = 'interview';
+            this.voiceEnabled = false;
+        }
 
         this.init();
     }
@@ -17,6 +29,8 @@ class Steady {
         this.setupSpeech();
         this.checkFirstRun();
         this.renderHistory();
+        this.updateModeDisplay();
+        this.updateVoiceDisplay();
         this.setupEventListeners();
     }
 
@@ -33,71 +47,31 @@ class Steady {
             groundingText: document.getElementById('grounding-text'),
             manualInput: document.getElementById('manual-input'),
             editProfileBtn: document.getElementById('edit-profile-btn'),
-            clearSessionBtn: document.getElementById('clear-session')
+            clearSessionBtn: document.getElementById('clear-session'),
+            manualSubmit: document.getElementById('manual-submit'),
+            modeToggle: document.getElementById('mode-toggle'),
+            voiceToggle: document.getElementById('voice-toggle')
         };
     }
 
     setupSpeech() {
         this.isListening = false;
-        this.model = null;
-        this.recognizer = null;
-        this.stream = null;
-        this.audioContext = null;
-        this.processor = null;
-        this.loadVosk();
-    }
-
-    async loadVosk() {
-        try {
-            // Check if running on HTTPS (required for microphone access)
-            if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-                throw new Error('HTTPS required for microphone access. Please serve this app over HTTPS or run locally.');
-            }
-
-            const modelUrl = 'https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz';
-            if (typeof Vosk.createModel === 'function') {
-                this.model = await Vosk.createModel(modelUrl);
-            } else {
-                this.model = new Vosk.Model(modelUrl);
-            }
-            this.recognizer = new Vosk.Recognizer({model: this.model, sampleRate: 16000});
-            this.recognizer.on('result', (result) => {
-                if (result.text) {
-                    this.processInput(result.text);
-                }
-            });
-            // Setup audio with retry mechanism
-            await this.setupAudioWithRetry();
-        } catch (e) {
-            console.error('Vosk setup failed', e);
-            this.handleMicError(e);
-        }
-    }
-
-    async setupAudioWithRetry(maxRetries = 3) {
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                this.stream = await navigator.mediaDevices.getUserMedia({audio: true});
-                this.audioContext = new AudioContext();
-                await this.audioContext.audioWorklet.addModule('audio-worklet.js');
-                const source = this.audioContext.createMediaStreamSource(this.stream);
-                const workletNode = new AudioWorkletNode(this.audioContext, 'audio-processor');
-                workletNode.port.onmessage = (event) => {
-                    if (this.isListening) {
-                        this.recognizer.acceptWaveform(event.data);
-                    }
-                };
-                source.connect(workletNode);
-                workletNode.connect(this.audioContext.destination);
-                return; // Success, exit retry loop
-            } catch (e) {
-                console.warn(`Microphone access attempt ${attempt} failed:`, e);
-                if (attempt === maxRetries) {
-                    throw e; // Re-throw on final attempt
-                }
-                // Wait before retry
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            this.recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            this.recognition.continuous = true;
+            this.recognition.interimResults = false;
+            this.recognition.lang = 'en-US';
+            this.recognition.onresult = (event) => {
+                const transcript = event.results[event.results.length - 1][0].transcript;
+                this.processInput(transcript);
+            };
+            this.recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                this.handleMicError(event);
+            };
+        } else {
+            console.warn('Speech recognition not supported');
+            this.handleMicError({ name: 'NotSupportedError' });
         }
     }
 
@@ -105,20 +79,17 @@ class Steady {
         let message = "Speech Recognition Unavailable. Use manual input.";
         let detailedMessage = "";
 
-        if (error.name === 'NotAllowedError') {
-            message = "Microphone permission denied.";
-            detailedMessage = "Please allow microphone access in your browser settings. In Brave, check Shields settings and site permissions.";
-        } else if (error.name === 'NotFoundError') {
-            message = "No microphone found.";
-            detailedMessage = "Ensure your microphone is connected and enabled.";
-        } else if (error.name === 'NotReadableError') {
-            message = "Microphone is busy.";
-            detailedMessage = "Close other applications using the microphone and try again.";
-        } else if (error.message.includes('HTTPS')) {
-            message = "HTTPS Required";
-            detailedMessage = "Microphone access requires HTTPS. Please serve this app over HTTPS or run locally.";
+        if (error.name === 'NotSupportedError' || error.error === 'not-allowed') {
+            message = "Speech recognition not supported or permission denied.";
+            detailedMessage = "Try using Chrome or enable microphone permissions.";
+        } else if (error.error === 'no-speech') {
+            message = "No speech detected.";
+            detailedMessage = "Try speaking louder or closer to the microphone.";
+        } else if (error.error === 'network') {
+            message = "Network error.";
+            detailedMessage = "Check your internet connection.";
         } else {
-            detailedMessage = error.message;
+            detailedMessage = error.error || error.message || "Unknown error";
         }
 
         this.dom.micToggle.disabled = true;
@@ -147,6 +118,7 @@ class Steady {
 
         this.dom.micToggle.addEventListener('click', () => {
             if (this.isListening) {
+                this.recognition.stop();
                 this.isListening = false;
                 this.updateStatus('System Ready', 'ready');
                 this.dom.micToggle.classList.remove('active');
@@ -155,6 +127,7 @@ class Steady {
                     Start Monitoring
                 `;
             } else {
+                this.recognition.start();
                 this.isListening = true;
                 this.updateStatus('Monitoring...', 'listening');
                 this.dom.micToggle.classList.add('active');
@@ -172,6 +145,8 @@ class Steady {
         this.dom.clearSessionBtn.addEventListener('click', () => {
             this.dom.output.textContent = "State reset. All active buffers cleared.";
             this.dom.keyThemes.textContent = "N/A";
+            this.chatHistory = [];
+            localStorage.removeItem('steady_chat_history');
             this.showNotification("Operational state reset");
         });
 
@@ -180,7 +155,34 @@ class Steady {
                 e.preventDefault();
                 this.processInput(this.dom.manualInput.value);
                 this.dom.manualInput.value = "";
+                this.dom.manualInput.style.height = 'auto';
             }
+        });
+
+        // Auto-resize textarea
+        this.dom.manualInput.addEventListener('input', () => {
+            this.dom.manualInput.style.height = 'auto';
+            this.dom.manualInput.style.height = this.dom.manualInput.scrollHeight + 'px';
+        });
+
+        this.dom.manualSubmit.addEventListener('click', () => {
+            this.processInput(this.dom.manualInput.value);
+            this.dom.manualInput.value = "";
+            this.dom.manualInput.style.height = 'auto';
+        });
+
+        this.dom.modeToggle.addEventListener('click', () => {
+            this.mode = this.mode === 'interview' ? 'chat' : 'interview';
+            localStorage.setItem('steady_mode', this.mode);
+            this.updateModeDisplay();
+            this.showNotification(`Switched to ${this.mode} mode`);
+        });
+
+        this.dom.voiceToggle.addEventListener('click', () => {
+            this.voiceEnabled = !this.voiceEnabled;
+            localStorage.setItem('steady_voice', this.voiceEnabled);
+            this.updateVoiceDisplay();
+            this.showNotification(`Voice responses ${this.voiceEnabled ? 'enabled' : 'disabled'}`);
         });
     }
 
@@ -203,74 +205,81 @@ class Steady {
         this.dom.toneIndicator.textContent = tones[this.config.industry] || "Professional";
     }
 
-    processInput(text) {
+    async processInput(text) {
         if (!text.trim()) return;
         this.updateStatus('Processing...', 'thinking');
 
-        setTimeout(() => {
-            const response = this.generateResponse(text);
+        if (this.mode === 'chat') {
+            this.chatHistory.push(`User: ${text}`);
+        }
+
+        try {
+            const response = await this.generateResponse(text);
             this.displayResponse(response);
-            this.addToHistory(text, response);
+            if (this.mode === 'chat') {
+                this.chatHistory.push(`Assistant: ${response}`);
+                localStorage.setItem('steady_chat_history', JSON.stringify(this.chatHistory));
+            } else {
+                this.addToHistory(text, response);
+            }
             this.updateStatus('System Ready', 'ready');
-        }, 400);
+        } catch (error) {
+            console.error('Error processing input:', error);
+            this.displayResponse("Error generating response. Please try again.");
+            this.updateStatus('System Ready', 'ready');
+        }
     }
 
-    generateResponse(input) {
-        const text = input.toLowerCase();
-        let assistant = {
-            script: "",
-            themes: "",
-            grounding: ""
-        };
-
-        const role = this.config?.role || "professional";
-        const industry = this.config?.industry || "corporate";
-
-        if (text.includes("time you") || text.includes("example of") || text.includes("describe a")) {
-            assistant.script = `Utilize the STAR framework. Phrase: "A specific scenario that demonstrates this is when I was at [Organization]..."`;
-            assistant.themes = "Behavioral Analysis, Leadership";
-            assistant.grounding = "Describe the Situation concisely. Focus on your specific Action.";
-        }
-        else if (text.includes("strength") || text.includes("weakness")) {
-            assistant.script = `"My core capability lies in [X], which I've utilized to achieve [Y]..." For areas of growth: "I am currently refining my skillset in [Skill] by [Action]..."`;
-            assistant.themes = "Professional Self-Awareness";
-            assistant.grounding = "Ensure weaknesses are framed as active development areas.";
-        }
-        else if (text.includes("conflict") || text.includes("disagree") || text.includes("difficult")) {
-            assistant.script = `"I approach differing perspectives by first ensuring full alignment on objectives through active comprehension..."`;
-            assistant.themes = "Professional Maturity";
-            assistant.grounding = "Remain objective. Focus on solution-oriented outcomes.";
-        }
-        else if (text.includes("why do you") || text.includes("why this") || text.includes("interest you")) {
-            assistant.script = `"I am interested in this position because [Organization]'s focus on [Industry] aligns with my experience as a ${role}..."`;
-            assistant.themes = "Organizational Alignment";
-            assistant.grounding = "Connect historical experience to future value contribution.";
-        }
-        else {
-            assistant.script = `"That is an important consideration. In my capacity as a ${role}, I would address that by..."`;
-            assistant.themes = "Domain Expertise";
-            assistant.grounding = "Use: 'Let's examine that from a different angle' if you require a pause.";
+    async generateResponse(input) {
+        let prompt;
+        if (this.mode === 'interview') {
+            const role = this.config?.role || "professional";
+            const industry = this.config?.industry || "corporate";
+            const experience = this.config?.experience || "mid";
+            prompt = `You are a real-time interview coach. Provide a concise answer (3-5 sentences, under 75 words) to this interview question: "${input}". The candidate is applying for ${role} in ${industry}, with ${experience} level experience. Answer professionally and directly. Keep it short and natural.`;
+        } else {
+            // Chat mode: include conversation history
+            const context = this.chatHistory.slice(-10).join('\n'); // Last 10 messages
+            prompt = `You are a helpful AI assistant. Continue this conversation naturally. Previous messages:\n${context}\nUser: ${input}\nAssistant:`;
         }
 
-        // Professional tone refinement for Corporate
-        if (industry === 'corporate') {
-            assistant.script = assistant.script.replaceAll('EXCITED', 'STRATEGICALLY ALIGNED').replaceAll('LOVE', 'VALUED');
+        try {
+            const response = await fetch('/api/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    input: prompt,
+                    config: this.config
+                })
+            });
+            const data = await response.json();
+            return data.response || "Error generating response.";
+        } catch (error) {
+            console.error('API call failed:', error);
+            return "Error generating response. Please try again.";
         }
-
-        return assistant;
     }
 
     displayResponse(response) {
-        this.dom.output.textContent = response.script;
-        this.dom.keyThemes.textContent = response.themes;
-        this.dom.groundingText.textContent = response.grounding;
+        this.dom.output.textContent = response;
+        this.dom.keyThemes.textContent = this.mode === 'interview' ? "Answer Ready" : "Chat Response";
+        this.dom.groundingText.textContent = this.mode === 'interview' ? "Read this aloud as your response." : "Continue the conversation.";
+
+        if (this.voiceEnabled && 'speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(response);
+            utterance.rate = 0.9;
+            utterance.pitch = 1;
+            speechSynthesis.speak(utterance);
+        }
     }
 
     addToHistory(input, response) {
         const item = {
             id: Date.now(),
             input: input.substring(0, 40) + (input.length > 40 ? "..." : ""),
-            script: response.script,
+            script: response,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         this.history.unshift(item);
@@ -306,9 +315,16 @@ class Steady {
         }
     }
 
-    updateStatus(text, type) {
-        const typeClass = `status-${type}`;
-        this.dom.statusText.innerHTML = `<span class="status-indicator ${typeClass}"></span>${text}`;
+    updateModeDisplay() {
+        const icon = this.mode === 'interview' ? 
+            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>' : 
+            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>';
+        this.dom.modeToggle.innerHTML = `<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">${icon}</svg>`;
+        this.dom.modeToggle.classList.toggle('active', this.mode === 'chat');
+    }
+
+    updateVoiceDisplay() {
+        this.dom.voiceToggle.classList.toggle('active', this.voiceEnabled);
     }
 
     showNotification(message) {
